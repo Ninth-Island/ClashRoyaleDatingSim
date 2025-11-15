@@ -15,7 +15,6 @@ import java.util.Base64;
 public class CharacterConversationSimulator {
 
     private static final String API_URL = "https://api.anthropic.com/v1/messages";
-    private static final String API_KEY = "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";
     private static final String ANTHROPIC_VERSION = "2023-06-01";
 
     private String characterPersonality;
@@ -178,7 +177,7 @@ public class CharacterConversationSimulator {
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
         connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("x-api-key", API_KEY);
+        connection.setRequestProperty("x-api-key", APIKey.API_KEY);
         connection.setRequestProperty("anthropic-version", ANTHROPIC_VERSION);
         connection.setDoOutput(true);
 
