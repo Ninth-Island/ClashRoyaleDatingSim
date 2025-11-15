@@ -20,6 +20,7 @@ public class ChatPanel extends JPanel {
     private JScrollPane scrollPane;
 
     private List<ChatMessage> messages = new ArrayList<>();
+    private int characterMessageCount = 0;
 
     // Clash Royale colors
     private static final Color CLASH_BLUE = new Color(74, 144, 226);
@@ -238,10 +239,19 @@ public class ChatPanel extends JPanel {
                 SwingUtilities.invokeLater(() -> {
                     addMessage(response.message, false);
 
-                    // Re-enable input
-                    messageField.setEnabled(true);
-                    sendButton.setEnabled(true);
-                    messageField.requestFocus();
+                    // Check if date ended after 3 messages
+                    if (response.dateFailed) {
+                        // FAILURE CASE: User failed to romance the character
+                        handleDateFailure();
+                    } else if (characterMessageCount >= 3) {
+                        // SUCCESS CASE: User successfully romanced the character
+                        handleDateSuccess();
+                    } else {
+                        // Continue conversation - re-enable input
+                        messageField.setEnabled(true);
+                        sendButton.setEnabled(true);
+                        messageField.requestFocus();
+                    }
                 });
             } catch (Exception e) {
                 SwingUtilities.invokeLater(() -> {
@@ -262,6 +272,7 @@ public class ChatPanel extends JPanel {
         // Play deploy sound for character messages
         if (!isUser) {
             AudioPlayer.playDeploySound(matchedCard.name);
+            characterMessageCount++;
         }
 
         JPanel messageBubble = createMessageBubble(text, isUser);
@@ -350,6 +361,77 @@ public class ChatPanel extends JPanel {
                 });
             }
         }).start();
+    }
+
+    private void handleDateFailure() {
+        // Disable input - date is over
+        messageField.setEnabled(false);
+        sendButton.setEnabled(false);
+
+        // Play crying king sound
+        AudioPlayer.playCryingKing();
+
+        // Show failure message and restart after delay
+        new Thread(() -> {
+            try {
+                Thread.sleep(2000); // Wait 2 seconds for crying sound
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(parentFrame,
+                        "You failed to romance " + matchedCard.name + "!\n" +
+                        "Better luck next time in the Arena!",
+                        "Date Failed",
+                        JOptionPane.INFORMATION_MESSAGE);
+
+                    // Restart to bio entry
+                    restartToBioEntry();
+                });
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    private void handleDateSuccess() {
+        // Disable input - date is over
+        messageField.setEnabled(false);
+        sendButton.setEnabled(false);
+
+        // Get final "asking out" message in background
+        new Thread(() -> {
+            try {
+                String askOutMessage = chatSimulator.getFinalAskOutMessage();
+
+                // Display the final message
+                SwingUtilities.invokeLater(() -> {
+                    addMessage(askOutMessage, false);
+                });
+
+                // Wait a few seconds, then restart
+                Thread.sleep(3000);
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(parentFrame,
+                        "Success! You romanced " + matchedCard.name + "!\n" +
+                        "They want to see you again!",
+                        "Date Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+
+                    // Restart to bio entry
+                    restartToBioEntry();
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+                SwingUtilities.invokeLater(() -> {
+                    restartToBioEntry();
+                });
+            }
+        }).start();
+    }
+
+    private void restartToBioEntry() {
+        parentFrame.getContentPane().removeAll();
+        parentFrame.add(new ProfileInputPanel(parentFrame));
+        parentFrame.revalidate();
+        parentFrame.repaint();
     }
 
     // Simple message class

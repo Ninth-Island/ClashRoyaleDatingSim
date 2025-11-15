@@ -22,6 +22,8 @@ public class CharacterConversationSimulator {
     private String userBio;
     private List<JSONObject> conversationHistory;
     private UserProfile userP = new UserProfile();
+    private int characterMessageCount = 0;
+    private boolean dateFailed = false;
 
     public CharacterConversationSimulator(String apiKey, String characterPersonality, String userBio) {
         // API key is now hardcoded, but we keep the parameter for compatibility
@@ -36,10 +38,12 @@ public class CharacterConversationSimulator {
     public static class CharacterResponse {
         public String message;
         public int score;
+        public boolean dateFailed;
 
-        public CharacterResponse(String message, int score) {
+        public CharacterResponse(String message, int score, boolean dateFailed) {
             this.message = message;
             this.score = score;
+            this.dateFailed = dateFailed;
         }
 
         @Override
@@ -70,10 +74,18 @@ public class CharacterConversationSimulator {
         assistantMessage.put("content", characterReply);
         conversationHistory.add(assistantMessage);
 
+        // Increment character message count
+        characterMessageCount++;
+
         // Get score for user's statement
         int score = scoreUserStatement(userStatement, characterReply);
 
-        return new CharacterResponse(characterReply, score);
+        // After 3 messages, evaluate if the date was successful
+        if (characterMessageCount >= 3 && !dateFailed) {
+            dateFailed = !evaluateRomanceSuccess();
+        }
+
+        return new CharacterResponse(characterReply, score, dateFailed);
     }
 
     /**
@@ -85,10 +97,17 @@ public class CharacterConversationSimulator {
         requestBody.put("max_tokens", 500);
 
         // Create system message with character personality
-        String systemPrompt = "You are roleplaying as a character with this personality: " + characterPersonality + "\n" +
-                "You are on a date with someone who has this bio: " + userBio + "\n" +
-                "Stay in character at all times. Be engaging and respond naturally to what they say. " +
-                "Keep responses relatively brief (2-3 sentences) as this is a chat conversation.";
+        String systemPrompt = "You are FULLY IMMERSED as this character: " + characterPersonality + "\n" +
+                "You are on a date with someone who has this bio: " + userBio + "\n\n" +
+                "CRITICAL INSTRUCTIONS:\n" +
+                "- Talk EXACTLY like your character would in Clash Royale - use their speech patterns, mannerisms, and vocabulary\n" +
+                "- Make HEAVY references to the Clash Royale universe (Arena, Elixir, King's Tower, battles, clans, etc.)\n" +
+                "- Be authentic and natural - NOT generic or AI-like\n" +
+                "- Show your character's unique personality strongly - be quirky, funny, dramatic, or whatever fits them\n" +
+                "- Use slang, exclamations, and emotions that match your character\n" +
+                "- Reference specific Clash Royale gameplay mechanics and lore\n" +
+                "- Keep responses 2-3 sentences max\n" +
+                "- DO NOT sound corporate, formal, or generic - be REAL and IN-CHARACTER";
 
         requestBody.put("system", systemPrompt);
 
@@ -218,10 +237,18 @@ public class CharacterConversationSimulator {
         requestBody.put("max_tokens", 500);
 
         // Create system message
-        String systemPrompt = "You are roleplaying as a character with this personality: " + characterPersonality + "\n" +
-                "You are on a dating app and just matched with someone who has this bio: " + userBio + "\n" +
-                "You just saw their profile picture. Comment on their appearance, demeanor, and what you notice in the background. " +
-                "Be charming, witty, and flirty. Keep it brief (2-3 sentences). Stay in character.";
+        String systemPrompt = "You are FULLY IMMERSED as this character: " + characterPersonality + "\n" +
+                "You are on a dating app and just matched with someone who has this bio: " + userBio + "\n\n" +
+                "You just saw their profile picture. Comment on their appearance, demeanor, and what you notice in the background.\n\n" +
+                "CRITICAL INSTRUCTIONS:\n" +
+                "- Talk EXACTLY like your character would in Clash Royale - use their speech patterns, mannerisms, and vocabulary\n" +
+                "- Make HEAVY references to the Clash Royale universe (Arena, Elixir, King's Tower, battles, clans, etc.)\n" +
+                "- Be authentic and natural - NOT generic or AI-like\n" +
+                "- Show your character's unique personality strongly - be quirky, funny, dramatic, or whatever fits them\n" +
+                "- Use slang, exclamations, and emotions that match your character\n" +
+                "- Be charming and flirty in YOUR character's style\n" +
+                "- Keep it brief (2-3 sentences)\n" +
+                "- DO NOT sound corporate, formal, or generic - be REAL and IN-CHARACTER";
 
         requestBody.put("system", systemPrompt);
 
@@ -265,9 +292,17 @@ public class CharacterConversationSimulator {
         requestBody.put("model", "claude-haiku-4-5-20251001");
         requestBody.put("max_tokens", 500);
 
-        String systemPrompt = "You are roleplaying as a character with this personality: " + characterPersonality + "\n" +
-                "You are on a dating app and just matched with someone who has this bio: " + userBio + "\n" +
-                "Start the conversation with a brief, charming greeting (2-3 sentences). Stay in character.";
+        String systemPrompt = "You are FULLY IMMERSED as this character: " + characterPersonality + "\n" +
+                "You are on a dating app and just matched with someone who has this bio: " + userBio + "\n\n" +
+                "Start the conversation with a brief, charming greeting (2-3 sentences).\n\n" +
+                "CRITICAL INSTRUCTIONS:\n" +
+                "- Talk EXACTLY like your character would in Clash Royale - use their speech patterns, mannerisms, and vocabulary\n" +
+                "- Make HEAVY references to the Clash Royale universe (Arena, Elixir, King's Tower, battles, clans, etc.)\n" +
+                "- Be authentic and natural - NOT generic or AI-like\n" +
+                "- Show your character's unique personality strongly - be quirky, funny, dramatic, or whatever fits them\n" +
+                "- Use slang, exclamations, and emotions that match your character\n" +
+                "- Be charming and flirty in YOUR character's style\n" +
+                "- DO NOT sound corporate, formal, or generic - be REAL and IN-CHARACTER";
 
         requestBody.put("system", systemPrompt);
 
@@ -307,10 +342,90 @@ public class CharacterConversationSimulator {
     }
 
     /**
+     * Gets a final "asking out" message from the character after successful romance
+     */
+    public String getFinalAskOutMessage() throws Exception {
+        JSONObject requestBody = new JSONObject();
+        requestBody.put("model", "claude-haiku-4-5-20251001");
+        requestBody.put("max_tokens", 200);
+
+        String systemPrompt = "You are FULLY IMMERSED as this character: " + characterPersonality + "\n" +
+                "You just had a great conversation with your match and you're really into them!\n\n" +
+                "Send ONE FINAL message asking them out on a date. Make it:\n" +
+                "- Enthusiastic and excited\n" +
+                "- In character with Clash Royale references\n" +
+                "- A clear invitation to meet up/go on a date\n" +
+                "- 2-3 sentences max\n" +
+                "- Authentic to YOUR character's personality\n" +
+                "Example: 'Yo, wanna meet up at the Arena this weekend? I'll show you my best push strategies over some elixir! 💪'";
+
+        requestBody.put("system", systemPrompt);
+
+        JSONArray messages = new JSONArray();
+        JSONObject userMessage = new JSONObject();
+        userMessage.put("role", "user");
+        userMessage.put("content", "Ask me out!");
+        messages.put(userMessage);
+
+        requestBody.put("messages", messages);
+
+        return makeAPICall(requestBody);
+    }
+
+    /**
+     * Evaluates if the user successfully romanced the character after 3 messages
+     */
+    private boolean evaluateRomanceSuccess() throws Exception {
+        JSONObject requestBody = new JSONObject();
+        requestBody.put("model", "claude-haiku-4-5-20251001");
+        requestBody.put("max_tokens", 10);
+
+        String systemPrompt = "You are evaluating a dating conversation between a Clash Royale character and a user. " +
+                "Based on the 3-message conversation, determine if the user successfully charmed and romanced the character. " +
+                "Consider:\n" +
+                "- Did the user engage with the character's personality?\n" +
+                "- Were their messages interesting, funny, or charming?\n" +
+                "- Did they show genuine interest?\n" +
+                "- Were they appropriate and not creepy/offensive?\n" +
+                "- Did they play along with Clash Royale references?\n\n" +
+                "Respond with ONLY 'yes' if the user successfully romanced them, or 'no' if they failed.";
+
+        requestBody.put("system", systemPrompt);
+
+        // Create evaluation message with full conversation context
+        JSONArray messages = new JSONArray();
+        JSONObject evalMessage = new JSONObject();
+        evalMessage.put("role", "user");
+
+        StringBuilder conversationText = new StringBuilder();
+        conversationText.append("Character Personality: ").append(characterPersonality).append("\n");
+        conversationText.append("User Bio: ").append(userBio).append("\n\n");
+        conversationText.append("Conversation:\n");
+
+        for (JSONObject msg : conversationHistory) {
+            String role = msg.getString("role");
+            String content = msg.getString("content");
+            conversationText.append(role.equals("user") ? "User: " : "Character: ")
+                           .append(content).append("\n");
+        }
+
+        conversationText.append("\nDid the user successfully romance this character? (yes/no)");
+        evalMessage.put("content", conversationText.toString());
+        messages.put(evalMessage);
+
+        requestBody.put("messages", messages);
+
+        String response = makeAPICall(requestBody);
+        return response.trim().toLowerCase().contains("yes");
+    }
+
+    /**
      * Resets the conversation while keeping character and user info
      */
     public void resetConversation() {
         conversationHistory.clear();
+        characterMessageCount = 0;
+        dateFailed = false;
     }
 
     // Example usage
