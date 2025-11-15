@@ -272,7 +272,20 @@ class ProfileInputPanel extends JPanel {
                 inputPanel.add(photoPanel);
                 break;
 
-            case 3: // Height
+            case 3: // Preference (moved here)
+                speechBubbleLabel.setText("And what are your romantic preferences?");
+                preferenceComboBox = new JComboBox<>(new String[]{"Straight", "Gay", "Something Else"});
+                preferenceComboBox.setFont(Fonts.ClashFontMedium);
+                preferenceComboBox.setMaximumSize(new Dimension(250, 35));
+                preferenceComboBox.setPreferredSize(new Dimension(250, 35));
+                preferenceComboBox.setSelectedItem(preference);
+                JPanel preferencePanel = new JPanel();
+                preferencePanel.setOpaque(false);
+                preferencePanel.add(preferenceComboBox);
+                inputPanel.add(preferencePanel);
+                break;
+
+            case 4: // Height
                 speechBubbleLabel.setText("What height are you seeking in a partner?");
                 JPanel heightPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
                 heightPanel.setOpaque(false);
@@ -295,7 +308,7 @@ class ProfileInputPanel extends JPanel {
                 inputPanel.add(heightPanel);
                 break;
 
-            case 4: // Attack range
+            case 5: // Attack range
                 speechBubbleLabel.setText("What attack range suits you best?");
                 rangeComboBox = new JComboBox<>(new String[]{"Short", "Medium", "Long", "Extra Long"});
                 rangeComboBox.setFont(Fonts.ClashFontMedium);
@@ -308,7 +321,7 @@ class ProfileInputPanel extends JPanel {
                 inputPanel.add(rangePanel);
                 break;
 
-            case 5: // Free time
+            case 6: // Free time
                 speechBubbleLabel.setText("How much free time does your ideal match have?");
                 freeTimeSlider = new JSlider(0, 100, freeTime);
                 freeTimeSlider.setOpaque(false);
@@ -323,7 +336,7 @@ class ProfileInputPanel extends JPanel {
                 inputPanel.add(freeTimePanel);
                 break;
 
-            case 6: // Humanness
+            case 7: // Humanness
                 speechBubbleLabel.setText("How human should your match be?");
                 humannessSlider = new JSlider(0, 100, humanness);
                 humannessSlider.setOpaque(false);
@@ -336,19 +349,6 @@ class ProfileInputPanel extends JPanel {
                 humannessPanel.setOpaque(false);
                 humannessPanel.add(humannessSlider);
                 inputPanel.add(humannessPanel);
-                break;
-
-            case 7: // Preference
-                speechBubbleLabel.setText("And what are your romantic preferences?");
-                preferenceComboBox = new JComboBox<>(new String[]{"Straight", "Gay", "Something Else"});
-                preferenceComboBox.setFont(Fonts.ClashFontMedium);
-                preferenceComboBox.setMaximumSize(new Dimension(250, 35));
-                preferenceComboBox.setPreferredSize(new Dimension(250, 35));
-                preferenceComboBox.setSelectedItem(preference);
-                JPanel preferencePanel = new JPanel();
-                preferencePanel.setOpaque(false);
-                preferencePanel.add(preferenceComboBox);
-                inputPanel.add(preferencePanel);
 
                 // Change button text for last question
                 continueButton.setText("Find My Matches!");
@@ -383,21 +383,26 @@ class ProfileInputPanel extends JPanel {
             case 2: // Photo (optional, but encourage)
                 // Photo is optional, just move on
                 break;
-            case 3: // Height
+            case 3: // Preference (moved here)
+                preference = (String) preferenceComboBox.getSelectedItem();
+                // If Gay, skip all remaining questions and go straight to Mega Knight
+                if (preference.equals("Gay")) {
+                    startMatching(parent);
+                    return;
+                }
+                break;
+            case 4: // Height
                 heightFeet = (Integer) heightFeetSpinner.getValue();
                 heightInches = (Integer) heightInchesSpinner.getValue();
                 break;
-            case 4: // Attack range
+            case 5: // Attack range
                 attackRange = (String) rangeComboBox.getSelectedItem();
                 break;
-            case 5: // Free time
+            case 6: // Free time
                 freeTime = freeTimeSlider.getValue();
                 break;
-            case 6: // Humanness
+            case 7: // Humanness (last question now)
                 humanness = humannessSlider.getValue();
-                break;
-            case 7: // Preference
-                preference = (String) preferenceComboBox.getSelectedItem();
                 // All done! Start matching
                 startMatching(parent);
                 return;

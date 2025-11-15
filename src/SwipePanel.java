@@ -233,12 +233,72 @@ class SwipePanel extends JPanel {
                 cards.add(card);
             }
 
-            Collections.shuffle(cards);
+            // Score and sort cards by compatibility
+            scoreAndSortCards();
+
             System.out.println("Loaded " + cards.size() + " cards from JSON (filtered by preference: " + sexualPreference + ")");
+            System.out.println("Cards sorted by compatibility score");
 
         } catch (Exception e) {
             System.err.println("Error loading cards from JSON: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    private void scoreAndSortCards() {
+        // Calculate compatibility score for each card
+        for (ClashCard card : cards) {
+            double totalScore = 0;
+
+            // 1. Height matching (convert to total inches for comparison)
+            int userHeightInches = (preferredHeightFeet * 12) + preferredHeightInches;
+            int cardHeightInches = (card.heightFeet * 12) + card.heightInches;
+            int heightDifference = Math.abs(userHeightInches - cardHeightInches);
+            double heightScore = Math.max(0, 100 - (heightDifference * 2.0)); // 2 points penalty per inch
+            totalScore += heightScore;
+
+            // 2. Attack range matching
+            int userRangeValue = attackRangeToValue(preferredAttackRange);
+            int cardRangeValue = attackRangeToValue(card.attackRange);
+            int rangeDifference = Math.abs(userRangeValue - cardRangeValue);
+            double rangeScore = Math.max(0, 100 - (rangeDifference * 25.0)); // 25 points penalty per level
+            totalScore += rangeScore;
+
+            // 3. Free time matching (convert card's 0-1 to 0-100)
+            double cardFreeTimePercent = card.freeTime * 100;
+            double freeTimeDifference = Math.abs(preferredFreeTime - cardFreeTimePercent);
+            double freeTimeScore = Math.max(0, 100 - freeTimeDifference); // 1 point penalty per percent
+            totalScore += freeTimeScore;
+
+            // 4. Humanness matching (convert card's 0-1 to 0-100)
+            double cardHumannessPercent = card.humanoidScore * 100;
+            double humannessDifference = Math.abs(preferredHumanness - cardHumannessPercent);
+            double humannessScore = Math.max(0, 100 - humannessDifference); // 1 point penalty per percent
+            totalScore += humannessScore;
+
+            // Store the total compatibility score
+            card.compatibilityScore = totalScore;
+        }
+
+        // Sort cards by compatibility score (highest to lowest)
+        cards.sort((c1, c2) -> Double.compare(c2.compatibilityScore, c1.compatibilityScore));
+
+        // Debug: Print top 5 matches
+        System.out.println("\nTop 5 Matches:");
+        for (int i = 0; i < Math.min(5, cards.size()); i++) {
+            ClashCard c = cards.get(i);
+            System.out.printf("%d. %s - Score: %.1f\n", i + 1, c.name, c.compatibilityScore);
+        }
+    }
+
+    private int attackRangeToValue(String range) {
+        switch (range.toLowerCase()) {
+            case "short": return 1;
+            case "medium": return 2;
+            case "long": return 3;
+            case "extra long":
+            case "x-long": return 4;
+            default: return 2; // Default to medium
         }
     }
 
@@ -787,6 +847,7 @@ class ClashCard {
     String personality;
     int heightFeet;
     int heightInches;
+    double compatibilityScore = 0; // Matching score based on user preferences
 
     public ClashCard(String name, String image, String height, String attackRange,
                      double freeTime, double humanoidScore, String category, String personality) {
