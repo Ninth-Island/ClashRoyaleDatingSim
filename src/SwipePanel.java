@@ -13,6 +13,7 @@ import javax.imageio.ImageIO;
 class SwipePanel extends JPanel {
     private String userName;
     private String userBio;
+    private String userImagePath;
     private List<ClashCard> cards;
     private int currentIndex = 0;
     private List<ClashCard> matches;
@@ -20,15 +21,31 @@ class SwipePanel extends JPanel {
     private ImageIcon cryingGif;
     private java.util.List<Image> backgroundImages;
 
+    // User preferences
+    private int preferredHeightFeet;
+    private int preferredHeightInches;
+    private String preferredAttackRange;
+    private int preferredFreeTime;
+    private int preferredHumanness;
+    private String sexualPreference;
+
     // Clash Royale colors
     private static final Color CLASH_BLUE = new Color(74, 144, 226);
     private static final Color CLASH_DARK_BLUE = new Color(45, 88, 167);
     private static final Color CLASH_GOLD = new Color(255, 183, 77);
     private static final Color CARD_BG = new Color(255, 255, 255, 250);
 
-    public SwipePanel(JFrame parent, String name, String bio) {
+    public SwipePanel(JFrame parent, String name, String bio, int heightFeet, int heightInches,
+                      String attackRange, int freeTime, int humanness, String preference, String imagePath) {
         this.userName = name;
         this.userBio = bio;
+        this.userImagePath = imagePath;
+        this.preferredHeightFeet = heightFeet;
+        this.preferredHeightInches = heightInches;
+        this.preferredAttackRange = attackRange;
+        this.preferredFreeTime = freeTime;
+        this.preferredHumanness = humanness;
+        this.sexualPreference = preference;
         this.matches = new ArrayList<>();
 
         setLayout(new BorderLayout(0, 0));
@@ -36,7 +53,14 @@ class SwipePanel extends JPanel {
         // Load images
         loadImages();
 
-        // Initialize cards
+        // Check for instant Mega Knight match (Gay preference)
+        if (sexualPreference.equals("Gay")) {
+            initializeCardsForMegaKnight();
+            showInstantMegaKnightMatch(parent);
+            return;
+        }
+
+        // Initialize cards based on preference
         initializeCards();
 
         // Show current card
@@ -193,16 +217,156 @@ class SwipePanel extends JPanel {
                 String category = extractJsonString(cardStr, "category");
                 String personality = extractJsonString(cardStr, "personality");
 
+                // Filter based on sexual preference
+                if (sexualPreference.equals("Something Else")) {
+                    // Only show buildings
+                    if (!category.equals("building")) {
+                        continue;
+                    }
+                } else {
+                    // For "Straight" - only show troops (exclude buildings and mega knight)
+                    if (category.equals("building") || category.equals("mega knight")) {
+                        continue;
+                    }
+                }
+
                 ClashCard card = new ClashCard(cardName, image, height, attackRange,
                                                freeTime, humanoidScore, category, personality);
                 cards.add(card);
             }
 
-            Collections.shuffle(cards);
-            System.out.println("Loaded " + cards.size() + " cards from JSON");
+            // Score and sort cards by compatibility
+            scoreAndSortCards();
+
+            System.out.println("Loaded " + cards.size() + " cards from JSON (filtered by preference: " + sexualPreference + ")");
+            System.out.println("Cards sorted by compatibility score");
 
         } catch (Exception e) {
             System.err.println("Error loading cards from JSON: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void scoreAndSortCards() {
+        // Calculate compatibility score for each card
+        for (ClashCard card : cards) {
+            double totalScore = 0;
+
+            // 1. Height matching (convert to total inches for comparison)
+            int userHeightInches = (preferredHeightFeet * 12) + preferredHeightInches;
+            int cardHeightInches = (card.heightFeet * 12) + card.heightInches;
+            int heightDifference = Math.abs(userHeightInches - cardHeightInches);
+            double heightScore = Math.max(0, 100 - (heightDifference * 2.0)); // 2 points penalty per inch
+            totalScore += heightScore;
+
+            // 2. Attack range matching
+            int userRangeValue = attackRangeToValue(preferredAttackRange);
+            int cardRangeValue = attackRangeToValue(card.attackRange);
+            int rangeDifference = Math.abs(userRangeValue - cardRangeValue);
+            double rangeScore = Math.max(0, 100 - (rangeDifference * 25.0)); // 25 points penalty per level
+            totalScore += rangeScore;
+
+            // 3. Free time matching (convert card's 0-1 to 0-100)
+            double cardFreeTimePercent = card.freeTime * 100;
+            double freeTimeDifference = Math.abs(preferredFreeTime - cardFreeTimePercent);
+            double freeTimeScore = Math.max(0, 100 - freeTimeDifference); // 1 point penalty per percent
+            totalScore += freeTimeScore;
+
+            // 4. Humanness matching (convert card's 0-1 to 0-100)
+            double cardHumannessPercent = card.humanoidScore * 100;
+            double humannessDifference = Math.abs(preferredHumanness - cardHumannessPercent);
+            double humannessScore = Math.max(0, 100 - humannessDifference); // 1 point penalty per percent
+            totalScore += humannessScore;
+
+            // Store the total compatibility score
+            card.compatibilityScore = totalScore;
+        }
+
+        // Sort cards by compatibility score (highest to lowest)
+        cards.sort((c1, c2) -> Double.compare(c2.compatibilityScore, c1.compatibilityScore));
+
+        // Debug: Print top 5 matches
+        System.out.println("\nTop 5 Matches:");
+        for (int i = 0; i < Math.min(5, cards.size()); i++) {
+            ClashCard c = cards.get(i);
+            System.out.printf("%d. %s - Score: %.1f\n", i + 1, c.name, c.compatibilityScore);
+        }
+    }
+
+    private int attackRangeToValue(String range) {
+        switch (range.toLowerCase()) {
+            case "short": return 1;
+            case "medium": return 2;
+            case "long": return 3;
+            case "extra long":
+            case "x-long": return 4;
+            default: return 2; // Default to medium
+        }
+    }
+
+    private String cleanImagePath(String imagePath) {
+        // Remove leading ./ if present
+        if (imagePath.startsWith("./")) {
+            imagePath = imagePath.substring(2);
+        }
+        // Remove leading images/ if present
+        if (imagePath.startsWith("images/")) {
+            imagePath = imagePath.substring(7);
+        }
+        return imagePath;
+    }
+
+    private void initializeCardsForMegaKnight() {
+        cards = new ArrayList<>();
+
+        try {
+            // Load JSON file - try multiple paths
+            String content = null;
+            String[] possiblePaths = {
+                "clash_royale_cards_updated.json",
+                "src/clash_royale_cards_updated.json",
+                "../clash_royale_cards_updated.json"
+            };
+
+            for (String path : possiblePaths) {
+                File jsonFile = new File(path);
+                if (jsonFile.exists()) {
+                    content = new String(Files.readAllBytes(Paths.get(path)));
+                    break;
+                }
+            }
+
+            if (content == null) {
+                System.err.println("Could not find clash_royale_cards_updated.json");
+                return;
+            }
+
+            // Find Mega Knight
+            String[] cardStrings = content.split("\\},\\s*\\{");
+
+            for (String cardStr : cardStrings) {
+                cardStr = cardStr.replace("[", "").replace("]", "").replace("{", "").replace("}", "");
+
+                String cardName = extractJsonString(cardStr, "card_name");
+                if (cardName.equals("Mega Knight")) {
+                    String image = extractJsonString(cardStr, "image");
+                    String height = extractJsonString(cardStr, "height");
+                    String attackRange = extractJsonString(cardStr, "attack_range");
+                    double freeTime = extractJsonDouble(cardStr, "free_time");
+                    double humanoidScore = extractJsonDouble(cardStr, "humanoid_score");
+                    String category = extractJsonString(cardStr, "category");
+                    String personality = extractJsonString(cardStr, "personality");
+
+                    ClashCard megaKnight = new ClashCard(cardName, image, height, attackRange,
+                                                          freeTime, humanoidScore, category, personality);
+                    matches.add(megaKnight);
+                    System.out.println("Instant match with Mega Knight!");
+                    break;
+                }
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error loading Mega Knight: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -269,6 +433,9 @@ class SwipePanel extends JPanel {
 
         ClashCard card = cards.get(currentIndex);
 
+        // Play deploy sound for the card
+        AudioPlayer.playDeploySound(card.name);
+
         // Title
         JPanel topPanel = new JPanel();
         topPanel.setOpaque(false);
@@ -300,11 +467,12 @@ class SwipePanel extends JPanel {
         try {
             // Load card's specific image - try multiple paths
             Image cardImage = null;
+            String cleanImagePath = cleanImagePath(card.image);
 
             String[] possiblePaths = {
-                "images/" + card.image,                    // When running from src directory
-                "src/images/" + card.image,                // When running from root
-                "../images/" + card.image
+                "images/" + cleanImagePath,                // When running from src directory
+                "src/images/" + cleanImagePath,            // When running from root
+                "../images/" + cleanImagePath
             };
 
             for (String path : possiblePaths) {
@@ -472,11 +640,210 @@ class SwipePanel extends JPanel {
     private void swipe(JFrame parent, boolean liked) {
         if (liked) {
             if (Math.random() > 0.2) {
-                matches.add(cards.get(currentIndex));
+                ClashCard matchedCard = cards.get(currentIndex);
+                matches.add(matchedCard);
+                // Immediately transition to chat with matched card
+                transitionToChat(parent, matchedCard);
+                return;
             }
         }
         currentIndex++;
         showCurrentCard(parent);
+    }
+
+    private void transitionToChat(JFrame parent, ClashCard matchedCard) {
+        // Show match announcement first
+        showMatchAnnouncement(parent, matchedCard);
+    }
+
+    private void showMatchAnnouncement(JFrame parent, ClashCard matchedCard) {
+        removeAll();
+        setLayout(new BorderLayout(10, 10));
+
+        // Play deploy sound for matched card
+        AudioPlayer.playDeploySound(matchedCard.name);
+
+        JPanel topPanel = new JPanel();
+        topPanel.setOpaque(false);
+        topPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 10, 20));
+        JLabel titleLabel = new JLabel("IT'S A MATCH!");
+        titleLabel.setFont(Fonts.ClashFontLarge);
+        titleLabel.setForeground(CLASH_GOLD);
+        topPanel.add(titleLabel);
+        add(topPanel, BorderLayout.NORTH);
+
+        JPanel matchPanel = new JPanel();
+        matchPanel.setLayout(new BoxLayout(matchPanel, BoxLayout.Y_AXIS));
+        matchPanel.setOpaque(false);
+
+        // Add card photo
+        matchPanel.add(Box.createVerticalStrut(20));
+        try {
+            Image cardImage = null;
+            String cleanImagePath = cleanImagePath(matchedCard.image);
+            String[] possiblePaths = {
+                "images/" + cleanImagePath,
+                "src/images/" + cleanImagePath,
+                "../images/" + cleanImagePath
+            };
+
+            for (String path : possiblePaths) {
+                File imageFile = new File(path);
+                if (imageFile.exists()) {
+                    cardImage = ImageIO.read(imageFile);
+                    break;
+                }
+            }
+
+            if (cardImage == null) {
+                // Try loading as resource
+                String imagePath = "/images/" + cleanImagePath;
+                try {
+                    cardImage = ImageIO.read(getClass().getResourceAsStream(imagePath));
+                } catch (Exception e) {
+                    System.err.println("Could not load card image: " + imagePath);
+                }
+            }
+
+            if (cardImage != null) {
+                Image scaledImage = cardImage.getScaledInstance(300, 300, Image.SCALE_SMOOTH);
+                JLabel imageLabel = new JLabel(new ImageIcon(scaledImage));
+                imageLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                matchPanel.add(imageLabel);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        matchPanel.add(Box.createVerticalStrut(20));
+
+        JLabel matchName = new JLabel(matchedCard.name.toUpperCase());
+        matchName.setFont(Fonts.ClashFontLarge);
+        matchName.setForeground(CLASH_GOLD);
+        matchName.setAlignmentX(Component.CENTER_ALIGNMENT);
+        matchPanel.add(matchName);
+
+        matchPanel.add(Box.createVerticalStrut(10));
+
+        JLabel matchMessage = new JLabel("<html><div style='text-align: center;'>Congratulations!<br>You've matched with " + matchedCard.name + "!</div></html>");
+        matchMessage.setFont(Fonts.ClashFontMedium);
+        matchMessage.setForeground(Color.WHITE);
+        matchMessage.setAlignmentX(Component.CENTER_ALIGNMENT);
+        matchMessage.setHorizontalAlignment(SwingConstants.CENTER);
+        matchPanel.add(matchMessage);
+
+        add(matchPanel, BorderLayout.CENTER);
+
+        // Add button to start chatting
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
+        buttonPanel.setOpaque(false);
+
+        JButton chatButton = createStyledButton("START CHATTING", new Color(40, 167, 69));
+        chatButton.addActionListener(e -> {
+            // Transition to chat panel
+            parent.getContentPane().removeAll();
+            parent.add(new ChatPanel(parent, matchedCard, userBio, userImagePath));
+            parent.revalidate();
+            parent.repaint();
+        });
+
+        JButton continueButton = createStyledButton("KEEP SWIPING", CLASH_BLUE);
+        continueButton.addActionListener(e -> {
+            currentIndex++;
+            showCurrentCard(parent);
+        });
+
+        buttonPanel.add(chatButton);
+        buttonPanel.add(continueButton);
+        add(buttonPanel, BorderLayout.SOUTH);
+
+        revalidate();
+        repaint();
+    }
+
+    private void showInstantMegaKnightMatch(JFrame parent) {
+        removeAll();
+        setLayout(new BorderLayout(10, 10));
+
+        // Play Mega Knight deploy sound
+        AudioPlayer.playDeploySound("Mega Knight");
+
+        JPanel topPanel = new JPanel();
+        topPanel.setOpaque(false);
+        topPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 10, 20));
+        JLabel titleLabel = new JLabel("IT'S A MATCH!");
+        titleLabel.setFont(Fonts.ClashFontLarge);
+        titleLabel.setForeground(CLASH_GOLD);
+        topPanel.add(titleLabel);
+        add(topPanel, BorderLayout.NORTH);
+
+        JPanel matchPanel = new JPanel();
+        matchPanel.setLayout(new BoxLayout(matchPanel, BoxLayout.Y_AXIS));
+        matchPanel.setOpaque(false);
+
+        ClashCard megaKnight = matches.get(0);
+
+        // Add Mega Knight photo
+        matchPanel.add(Box.createVerticalStrut(20));
+        try {
+            Image cardImage = null;
+            String cleanImagePath = cleanImagePath(megaKnight.image);
+            String imagePath = "/images/" + cleanImagePath;
+            try {
+                cardImage = ImageIO.read(getClass().getResourceAsStream(imagePath));
+                System.out.println("Successfully loaded Mega Knight image from: " + imagePath);
+            } catch (Exception e) {
+                System.err.println("Could not load card image: " + imagePath);
+                e.printStackTrace();
+            }
+
+            if (cardImage != null) {
+                Image scaledImage = cardImage.getScaledInstance(300, 300, Image.SCALE_SMOOTH);
+                JLabel imageLabel = new JLabel(new ImageIcon(scaledImage));
+                imageLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                matchPanel.add(imageLabel);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        matchPanel.add(Box.createVerticalStrut(20));
+
+        JLabel matchName = new JLabel("MEGA KNIGHT");
+        matchName.setFont(Fonts.ClashFontLarge);
+        matchName.setForeground(CLASH_GOLD);
+        matchName.setAlignmentX(Component.CENTER_ALIGNMENT);
+        matchPanel.add(matchName);
+
+        matchPanel.add(Box.createVerticalStrut(10));
+
+        JLabel matchMessage = new JLabel("<html><div style='text-align: center;'>Congratulations!<br>You've been matched with the legendary MEGA KNIGHT!</div></html>");
+        matchMessage.setFont(Fonts.ClashFontMedium);
+        matchMessage.setForeground(Color.WHITE);
+        matchMessage.setAlignmentX(Component.CENTER_ALIGNMENT);
+        matchMessage.setHorizontalAlignment(SwingConstants.CENTER);
+        matchPanel.add(matchMessage);
+
+        add(matchPanel, BorderLayout.CENTER);
+
+        // Add button to start chatting
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
+        buttonPanel.setOpaque(false);
+
+        JButton chatButton = createStyledButton("START CHATTING", new Color(40, 167, 69));
+        chatButton.addActionListener(e -> {
+            // Transition to chat panel with Mega Knight
+            parent.getContentPane().removeAll();
+            parent.add(new ChatPanel(parent, megaKnight, userBio, userImagePath));
+            parent.revalidate();
+            parent.repaint();
+        });
+
+        buttonPanel.add(chatButton);
+        add(buttonPanel, BorderLayout.SOUTH);
+
+        revalidate();
+        repaint();
     }
 
     private void showMatches(JFrame parent) {
@@ -503,6 +870,9 @@ class SwipePanel extends JPanel {
                 noMatchPanel.add(Box.createVerticalStrut(50));
                 noMatchPanel.add(gifLabel);
                 noMatchPanel.add(Box.createVerticalStrut(20));
+
+                // Play crying king audio
+                AudioPlayer.playCryingKing();
             }
 
             JLabel noMatches = new JLabel("<html><div style='text-align: center;'>No matches yet...<br>Better luck next time!</div></html>");
@@ -524,10 +894,11 @@ class SwipePanel extends JPanel {
             matchesPanel.add(Box.createVerticalStrut(20));
             try {
                 Image cardImage = null;
+                String cleanImagePath = cleanImagePath(topMatch.image);
                 String[] possiblePaths = {
-                    "images/" + topMatch.image,             // When running from src directory
-                    "src/images/" + topMatch.image,         // When running from root
-                    "../images/" + topMatch.image
+                    "images/" + cleanImagePath,             // When running from src directory
+                    "src/images/" + cleanImagePath,         // When running from root
+                    "../images/" + cleanImagePath
                 };
 
                 for (String path : possiblePaths) {
@@ -629,6 +1000,7 @@ class ClashCard {
     String personality;
     int heightFeet;
     int heightInches;
+    double compatibilityScore = 0; // Matching score based on user preferences
 
     public ClashCard(String name, String image, String height, String attackRange,
                      double freeTime, double humanoidScore, String category, String personality) {

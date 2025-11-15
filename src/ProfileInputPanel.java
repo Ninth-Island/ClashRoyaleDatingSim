@@ -14,6 +14,7 @@ class ProfileInputPanel extends JPanel {
     private JButton continueButton;
     private Image logoImage;
     private java.util.List<Image> backgroundImages;
+    private Image kingImage;
 
     // New fields
     private JSpinner heightFeetSpinner;
@@ -22,6 +23,22 @@ class ProfileInputPanel extends JPanel {
     private JSlider freeTimeSlider;
     private JSlider humannessSlider;
     private JComboBox<String> preferenceComboBox;
+
+    // Dialogue system
+    private int currentQuestion = 0;
+    private JLabel speechBubbleLabel;
+    private JPanel inputPanel;
+    private JPanel dialogueCard;
+
+    // Stored answers
+    private String userName = "";
+    private String userBio = "";
+    private int heightFeet = 5;
+    private int heightInches = 6;
+    private String attackRange = "Medium";
+    private int freeTime = 50;
+    private int humanness = 50;
+    private String preference = "Straight";
 
     // Clash Royale colors
     private static final Color CLASH_BLUE = new Color(74, 144, 226);
@@ -36,6 +53,7 @@ class ProfileInputPanel extends JPanel {
         backgroundImages = new java.util.ArrayList<>();
         try {
             logoImage = ImageIO.read(getClass().getResourceAsStream("/resources/main_logo_clashroyale.5e3fbb70__1_.webp"));
+            kingImage = ImageIO.read(getClass().getResourceAsStream("/resources/tutorial.png"));
 
             // Load all character/background images
             String[] imageFiles = {
@@ -72,205 +90,100 @@ class ProfileInputPanel extends JPanel {
         logoPanel.add(logoLabel);
         add(logoPanel, BorderLayout.NORTH);
 
-        // Center panel with form card
+        // Center panel with dialogue card
         JPanel centerWrapper = new JPanel(new GridBagLayout());
         centerWrapper.setOpaque(false);
 
-        JPanel formCard = new JPanel();
-        formCard.setLayout(new BoxLayout(formCard, BoxLayout.Y_AXIS));
-        formCard.setBackground(CARD_BG);
-        formCard.setBorder(new RoundedBorder(15, CLASH_GOLD, 3));
+        dialogueCard = new JPanel();
+        dialogueCard.setLayout(new BoxLayout(dialogueCard, BoxLayout.Y_AXIS));
+        dialogueCard.setBackground(CARD_BG);
+        dialogueCard.setBorder(new RoundedBorder(15, CLASH_GOLD, 3));
 
-        // Title
-        JLabel titleLabel = new JLabel("Create Your Profile");
-        titleLabel.setFont(Fonts.ClashFontLarge);
-        titleLabel.setForeground(CLASH_DARK_BLUE);
-        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        formCard.add(Box.createVerticalStrut(20));
-        formCard.add(titleLabel);
-        formCard.add(Box.createVerticalStrut(15));
+        // King image with speech bubble
+        JPanel kingPanel = new JPanel(new BorderLayout());
+        kingPanel.setOpaque(false);
+        kingPanel.setMaximumSize(new Dimension(500, 280));
+        kingPanel.setPreferredSize(new Dimension(500, 280));
 
-        // Name field
-        JLabel nameLabel = new JLabel("NAME");
-        nameLabel.setFont(Fonts.ClashFontSmall);
-        nameLabel.setForeground(CLASH_DARK_BLUE);
-        nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        formCard.add(nameLabel);
-        formCard.add(Box.createVerticalStrut(5));
+        if (kingImage != null) {
+            JLabel kingLabel = new JLabel() {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    Graphics2D g2d = (Graphics2D) g;
+                    g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-        nameField = new JTextField(20);
-        nameField.setFont(Fonts.ClashFontMedium);
-        nameField.setMaximumSize(new Dimension(260, 35));
-        nameField.setHorizontalAlignment(JTextField.CENTER);
-        nameField.setBorder(BorderFactory.createCompoundBorder(
-            new RoundedBorder(8, CLASH_BLUE, 2),
-            BorderFactory.createEmptyBorder(5, 10, 5, 10)
-        ));
-        JPanel namePanel = new JPanel();
-        namePanel.setOpaque(false);
-        namePanel.add(nameField);
-        formCard.add(namePanel);
-        formCard.add(Box.createVerticalStrut(12));
+                    // Draw the king image
+                    g2d.drawImage(kingImage, 0, 0, 500, 280, this);
 
-        // Bio area
-        JLabel bioLabel = new JLabel("BIO");
-        bioLabel.setFont(Fonts.ClashFontSmall);
-        bioLabel.setForeground(CLASH_DARK_BLUE);
-        bioLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        formCard.add(bioLabel);
-        formCard.add(Box.createVerticalStrut(5));
+                    // Draw speech bubble text
+                    if (speechBubbleLabel != null && speechBubbleLabel.getText() != null) {
+                        g2d.setFont(Fonts.ClashFontMedium);
+                        g2d.setColor(CLASH_DARK_BLUE);
 
-        bioArea = new JTextArea(3, 20);
-        bioArea.setLineWrap(true);
-        bioArea.setWrapStyleWord(true);
-        bioArea.setFont(Fonts.ClashFontSmall);
-        bioArea.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 6));
-        JScrollPane scrollPane = new JScrollPane(bioArea);
-        scrollPane.setMaximumSize(new Dimension(260, 80));
-        scrollPane.setBorder(new RoundedBorder(8, CLASH_BLUE, 2));
-        JPanel bioPanel = new JPanel();
-        bioPanel.setOpaque(false);
-        bioPanel.add(scrollPane);
-        formCard.add(bioPanel);
-        formCard.add(Box.createVerticalStrut(12));
+                        String text = speechBubbleLabel.getText();
+                        FontMetrics fm = g2d.getFontMetrics();
 
-        // Desired height
-        JLabel heightLabel = new JLabel("DESIRED HEIGHT");
-        heightLabel.setFont(Fonts.ClashFontSmall);
-        heightLabel.setForeground(CLASH_DARK_BLUE);
-        heightLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        formCard.add(heightLabel);
-        formCard.add(Box.createVerticalStrut(5));
+                        // Word wrap the text to fit in the speech bubble
+                        java.util.List<String> lines = new java.util.ArrayList<>();
+                        String[] words = text.split(" ");
+                        String currentLine = "";
 
-        JPanel heightPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
-        heightPanel.setOpaque(false);
-        heightFeetSpinner = new JSpinner(new SpinnerNumberModel(5, 0, 99, 1));
-        heightFeetSpinner.setFont(Fonts.ClashFontSmall);
-        ((JSpinner.DefaultEditor) heightFeetSpinner.getEditor()).getTextField().setHorizontalAlignment(JTextField.CENTER);
-        heightFeetSpinner.setPreferredSize(new Dimension(60, 30));
-        JLabel feetLabel = new JLabel("ft");
-        feetLabel.setFont(Fonts.ClashFontSmall);
-        heightInchesSpinner = new JSpinner(new SpinnerNumberModel(6, 0, 11, 1));
-        heightInchesSpinner.setFont(Fonts.ClashFontSmall);
-        ((JSpinner.DefaultEditor) heightInchesSpinner.getEditor()).getTextField().setHorizontalAlignment(JTextField.CENTER);
-        heightInchesSpinner.setPreferredSize(new Dimension(60, 30));
-        JLabel inchesLabel = new JLabel("in");
-        inchesLabel.setFont(Fonts.ClashFontSmall);
-        heightPanel.add(heightFeetSpinner);
-        heightPanel.add(feetLabel);
-        heightPanel.add(heightInchesSpinner);
-        heightPanel.add(inchesLabel);
-        formCard.add(heightPanel);
-        formCard.add(Box.createVerticalStrut(12));
+                        for (String word : words) {
+                            String testLine = currentLine.isEmpty() ? word : currentLine + " " + word;
+                            if (fm.stringWidth(testLine) < 180) {
+                                currentLine = testLine;
+                            } else {
+                                if (!currentLine.isEmpty()) {
+                                    lines.add(currentLine);
+                                }
+                                currentLine = word;
+                            }
+                        }
+                        if (!currentLine.isEmpty()) {
+                            lines.add(currentLine);
+                        }
 
-        // Attack Range
-        JLabel rangeLabel = new JLabel("ATTACK RANGE");
-        rangeLabel.setFont(Fonts.ClashFontSmall);
-        rangeLabel.setForeground(CLASH_DARK_BLUE);
-        rangeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        formCard.add(rangeLabel);
-        formCard.add(Box.createVerticalStrut(5));
+                        // Draw the wrapped text in the speech bubble area (top right)
+                        int startX = 295;
+                        int startY = 60;
+                        int lineHeight = fm.getHeight();
 
-        rangeComboBox = new JComboBox<>(new String[]{"Short", "Medium", "Long", "Extra Long"});
-        rangeComboBox.setFont(Fonts.ClashFontSmall);
-        rangeComboBox.setMaximumSize(new Dimension(200, 30));
-        rangeComboBox.setPreferredSize(new Dimension(200, 30));
-        JPanel rangePanel = new JPanel();
-        rangePanel.setOpaque(false);
-        rangePanel.add(rangeComboBox);
-        formCard.add(rangePanel);
-        formCard.add(Box.createVerticalStrut(12));
+                        for (int i = 0; i < lines.size(); i++) {
+                            g2d.drawString(lines.get(i), startX, startY + (i * lineHeight));
+                        }
+                    }
+                }
+            };
+            kingLabel.setPreferredSize(new Dimension(500, 280));
+            kingPanel.add(kingLabel, BorderLayout.CENTER);
+        }
 
-        // Free time slider
-        JLabel freeTimeLabel = new JLabel("DATE'S FREE TIME (0-100)");
-        freeTimeLabel.setFont(Fonts.ClashFontSmall);
-        freeTimeLabel.setForeground(CLASH_DARK_BLUE);
-        freeTimeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        formCard.add(freeTimeLabel);
-        formCard.add(Box.createVerticalStrut(5));
+        dialogueCard.add(Box.createVerticalStrut(15));
+        dialogueCard.add(kingPanel);
+        dialogueCard.add(Box.createVerticalStrut(15));
 
-        freeTimeSlider = new JSlider(0, 100, 50);
-        freeTimeSlider.setOpaque(false);
-        freeTimeSlider.setMaximumSize(new Dimension(240, 40));
-        freeTimeSlider.setPreferredSize(new Dimension(240, 40));
-        freeTimeSlider.setMajorTickSpacing(25);
-        freeTimeSlider.setPaintTicks(true);
-        freeTimeSlider.setPaintLabels(true);
-        JPanel freeTimePanel = new JPanel();
-        freeTimePanel.setOpaque(false);
-        freeTimePanel.add(freeTimeSlider);
-        formCard.add(freeTimePanel);
-        formCard.add(Box.createVerticalStrut(10));
+        // Speech bubble label (invisible, used for painting)
+        speechBubbleLabel = new JLabel();
 
-        // Humanness slider
-        JLabel humannessLabel = new JLabel("HOW HUMAN (0-100)");
-        humannessLabel.setFont(Fonts.ClashFontSmall);
-        humannessLabel.setForeground(CLASH_DARK_BLUE);
-        humannessLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        formCard.add(humannessLabel);
-        formCard.add(Box.createVerticalStrut(5));
+        // Input panel (dynamic based on question)
+        inputPanel = new JPanel();
+        inputPanel.setLayout(new BoxLayout(inputPanel, BoxLayout.Y_AXIS));
+        inputPanel.setOpaque(false);
+        inputPanel.setMaximumSize(new Dimension(400, 200));
+        dialogueCard.add(inputPanel);
+        dialogueCard.add(Box.createVerticalStrut(15));
 
-        humannessSlider = new JSlider(0, 100, 50);
-        humannessSlider.setOpaque(false);
-        humannessSlider.setMaximumSize(new Dimension(240, 40));
-        humannessSlider.setPreferredSize(new Dimension(240, 40));
-        humannessSlider.setMajorTickSpacing(25);
-        humannessSlider.setPaintTicks(true);
-        humannessSlider.setPaintLabels(true);
-        JPanel humannessPanel = new JPanel();
-        humannessPanel.setOpaque(false);
-        humannessPanel.add(humannessSlider);
-        formCard.add(humannessPanel);
-        formCard.add(Box.createVerticalStrut(10));
-
-        // Preference
-        JLabel preferenceLabel = new JLabel("PREFERENCE");
-        preferenceLabel.setFont(Fonts.ClashFontSmall);
-        preferenceLabel.setForeground(CLASH_DARK_BLUE);
-        preferenceLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        formCard.add(preferenceLabel);
-        formCard.add(Box.createVerticalStrut(5));
-
-        preferenceComboBox = new JComboBox<>(new String[]{"Straight", "Gay", "Something Else"});
-        preferenceComboBox.setFont(Fonts.ClashFontSmall);
-        preferenceComboBox.setMaximumSize(new Dimension(200, 30));
-        preferenceComboBox.setPreferredSize(new Dimension(200, 30));
-        JPanel preferencePanel = new JPanel();
-        preferencePanel.setOpaque(false);
-        preferencePanel.add(preferenceComboBox);
-        formCard.add(preferencePanel);
-        formCard.add(Box.createVerticalStrut(12));
-
-        // Image preview
-        imageLabel = new JLabel("No image");
-        imageLabel.setFont(new Font("Arial", Font.PLAIN, 12));
-        imageLabel.setForeground(Color.GRAY);
-        imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        imageLabel.setPreferredSize(new Dimension(120, 120));
-        imageLabel.setBorder(new RoundedBorder(10, CLASH_BLUE, 2));
-        imageLabel.setBackground(Color.WHITE);
-        imageLabel.setOpaque(true);
-        imageLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        formCard.add(imageLabel);
-        formCard.add(Box.createVerticalStrut(10));
-
-        // Upload button
-        JButton uploadButton = createStyledButton("Upload Photo", CLASH_BLUE);
-        uploadButton.setPreferredSize(new Dimension(180, 35));
-        uploadButton.addActionListener(e -> selectImage());
-        uploadButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-        formCard.add(uploadButton);
-        formCard.add(Box.createVerticalStrut(15));
-
-        // Continue button inside card
-        continueButton = createStyledButton("Find My Matches!", CLASH_GOLD);
+        // Continue button
+        continueButton = createStyledButton("Continue", CLASH_GOLD);
         continueButton.setPreferredSize(new Dimension(240, 45));
-        continueButton.addActionListener(e -> startMatching(parent));
         continueButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-        formCard.add(continueButton);
-        formCard.add(Box.createVerticalStrut(20));
+        continueButton.addActionListener(e -> handleContinue(parent));
+        dialogueCard.add(continueButton);
+        dialogueCard.add(Box.createVerticalStrut(20));
 
-        centerWrapper.add(formCard);
+        centerWrapper.add(dialogueCard);
 
         // Wrap in scroll pane to handle overflow
         JScrollPane mainScrollPane = new JScrollPane(centerWrapper);
@@ -282,6 +195,221 @@ class ProfileInputPanel extends JPanel {
         mainScrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
         add(mainScrollPane, BorderLayout.CENTER);
+
+        // Initialize first question
+        showQuestion(0);
+    }
+
+    private void showQuestion(int questionNumber) {
+        currentQuestion = questionNumber;
+        inputPanel.removeAll();
+
+        // Play random king dialogue sound
+        AudioPlayer.playRandomDialogue();
+
+        switch (questionNumber) {
+            case 0: // Name
+                speechBubbleLabel.setText("Welcome, warrior! What shall I call you?");
+                nameField = new JTextField(20);
+                nameField.setFont(Fonts.ClashFontMedium);
+                nameField.setMaximumSize(new Dimension(300, 40));
+                nameField.setHorizontalAlignment(JTextField.CENTER);
+                nameField.setBorder(BorderFactory.createCompoundBorder(
+                    new RoundedBorder(8, CLASH_BLUE, 2),
+                    BorderFactory.createEmptyBorder(5, 10, 5, 10)
+                ));
+                nameField.setText(userName);
+                JPanel namePanel = new JPanel();
+                namePanel.setOpaque(false);
+                namePanel.add(nameField);
+                inputPanel.add(namePanel);
+                break;
+
+            case 1: // Bio
+                speechBubbleLabel.setText("Tell me about yourself. What makes you unique?");
+                bioArea = new JTextArea(4, 25);
+                bioArea.setLineWrap(true);
+                bioArea.setWrapStyleWord(true);
+                bioArea.setFont(Fonts.ClashFontSmall);
+                bioArea.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+                bioArea.setText(userBio);
+                JScrollPane scrollPane = new JScrollPane(bioArea);
+                scrollPane.setMaximumSize(new Dimension(320, 100));
+                scrollPane.setBorder(new RoundedBorder(8, CLASH_BLUE, 2));
+                JPanel bioPanel = new JPanel();
+                bioPanel.setOpaque(false);
+                bioPanel.add(scrollPane);
+                inputPanel.add(bioPanel);
+                break;
+
+            case 2: // Photo upload
+                speechBubbleLabel.setText("Show me your finest portrait!");
+                imageLabel = new JLabel("No image");
+                imageLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+                imageLabel.setForeground(Color.GRAY);
+                imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+                imageLabel.setPreferredSize(new Dimension(150, 150));
+                imageLabel.setBorder(new RoundedBorder(10, CLASH_BLUE, 2));
+                imageLabel.setBackground(Color.WHITE);
+                imageLabel.setOpaque(true);
+                if (selectedImage != null) {
+                    ImageIcon icon = new ImageIcon(selectedImage.getAbsolutePath());
+                    Image scaled = icon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
+                    imageLabel.setIcon(new ImageIcon(scaled));
+                    imageLabel.setText("");
+                }
+                JButton uploadButton = createStyledButton("Upload Photo", CLASH_BLUE);
+                uploadButton.setPreferredSize(new Dimension(200, 40));
+                uploadButton.addActionListener(e -> selectImage());
+                JPanel photoPanel = new JPanel();
+                photoPanel.setOpaque(false);
+                photoPanel.setLayout(new BoxLayout(photoPanel, BoxLayout.Y_AXIS));
+                imageLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                uploadButton.setAlignmentX(Component.CENTER_ALIGNMENT);
+                photoPanel.add(imageLabel);
+                photoPanel.add(Box.createVerticalStrut(10));
+                photoPanel.add(uploadButton);
+                inputPanel.add(photoPanel);
+                break;
+
+            case 3: // Preference (moved here)
+                speechBubbleLabel.setText("And what are your romantic preferences?");
+                preferenceComboBox = new JComboBox<>(new String[]{"Straight", "Gay", "Something Else"});
+                preferenceComboBox.setFont(Fonts.ClashFontMedium);
+                preferenceComboBox.setMaximumSize(new Dimension(250, 35));
+                preferenceComboBox.setPreferredSize(new Dimension(250, 35));
+                preferenceComboBox.setSelectedItem(preference);
+                JPanel preferencePanel = new JPanel();
+                preferencePanel.setOpaque(false);
+                preferencePanel.add(preferenceComboBox);
+                inputPanel.add(preferencePanel);
+                break;
+
+            case 4: // Height
+                speechBubbleLabel.setText("What height are you seeking in a partner?");
+                JPanel heightPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
+                heightPanel.setOpaque(false);
+                heightFeetSpinner = new JSpinner(new SpinnerNumberModel(heightFeet, 0, 99, 1));
+                heightFeetSpinner.setFont(Fonts.ClashFontMedium);
+                ((JSpinner.DefaultEditor) heightFeetSpinner.getEditor()).getTextField().setHorizontalAlignment(JTextField.CENTER);
+                heightFeetSpinner.setPreferredSize(new Dimension(70, 35));
+                JLabel feetLabel = new JLabel("ft");
+                feetLabel.setFont(Fonts.ClashFontMedium);
+                heightInchesSpinner = new JSpinner(new SpinnerNumberModel(heightInches, 0, 11, 1));
+                heightInchesSpinner.setFont(Fonts.ClashFontMedium);
+                ((JSpinner.DefaultEditor) heightInchesSpinner.getEditor()).getTextField().setHorizontalAlignment(JTextField.CENTER);
+                heightInchesSpinner.setPreferredSize(new Dimension(70, 35));
+                JLabel inchesLabel = new JLabel("in");
+                inchesLabel.setFont(Fonts.ClashFontMedium);
+                heightPanel.add(heightFeetSpinner);
+                heightPanel.add(feetLabel);
+                heightPanel.add(heightInchesSpinner);
+                heightPanel.add(inchesLabel);
+                inputPanel.add(heightPanel);
+                break;
+
+            case 5: // Attack range
+                speechBubbleLabel.setText("What attack range suits you best?");
+                rangeComboBox = new JComboBox<>(new String[]{"Short", "Medium", "Long", "Extra Long"});
+                rangeComboBox.setFont(Fonts.ClashFontMedium);
+                rangeComboBox.setMaximumSize(new Dimension(250, 35));
+                rangeComboBox.setPreferredSize(new Dimension(250, 35));
+                rangeComboBox.setSelectedItem(attackRange);
+                JPanel rangePanel = new JPanel();
+                rangePanel.setOpaque(false);
+                rangePanel.add(rangeComboBox);
+                inputPanel.add(rangePanel);
+                break;
+
+            case 6: // Free time
+                speechBubbleLabel.setText("How much free time does your ideal match have?");
+                freeTimeSlider = new JSlider(0, 100, freeTime);
+                freeTimeSlider.setOpaque(false);
+                freeTimeSlider.setMaximumSize(new Dimension(280, 50));
+                freeTimeSlider.setPreferredSize(new Dimension(280, 50));
+                freeTimeSlider.setMajorTickSpacing(25);
+                freeTimeSlider.setPaintTicks(true);
+                freeTimeSlider.setPaintLabels(true);
+                JPanel freeTimePanel = new JPanel();
+                freeTimePanel.setOpaque(false);
+                freeTimePanel.add(freeTimeSlider);
+                inputPanel.add(freeTimePanel);
+                break;
+
+            case 7: // Humanness
+                speechBubbleLabel.setText("How human should your match be?");
+                humannessSlider = new JSlider(0, 100, humanness);
+                humannessSlider.setOpaque(false);
+                humannessSlider.setMaximumSize(new Dimension(280, 50));
+                humannessSlider.setPreferredSize(new Dimension(280, 50));
+                humannessSlider.setMajorTickSpacing(25);
+                humannessSlider.setPaintTicks(true);
+                humannessSlider.setPaintLabels(true);
+                JPanel humannessPanel = new JPanel();
+                humannessPanel.setOpaque(false);
+                humannessPanel.add(humannessSlider);
+                inputPanel.add(humannessPanel);
+
+                // Change button text for last question
+                continueButton.setText("Find My Matches!");
+                break;
+        }
+
+        inputPanel.revalidate();
+        inputPanel.repaint();
+        dialogueCard.revalidate();
+        dialogueCard.repaint();
+    }
+
+    private void handleContinue(JFrame parent) {
+        // Save current answer
+        switch (currentQuestion) {
+            case 0: // Name
+                userName = nameField.getText().trim();
+                if (userName.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Please enter your name!",
+                        "Missing Information", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                break;
+            case 1: // Bio
+                userBio = bioArea.getText().trim();
+                if (userBio.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Please tell us about yourself!",
+                        "Missing Information", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                break;
+            case 2: // Photo (optional, but encourage)
+                // Photo is optional, just move on
+                break;
+            case 3: // Preference (moved here)
+                preference = (String) preferenceComboBox.getSelectedItem();
+                // If Gay, skip all remaining questions and go straight to Mega Knight
+                if (preference.equals("Gay")) {
+                    startMatching(parent);
+                    return;
+                }
+                break;
+            case 4: // Height
+                heightFeet = (Integer) heightFeetSpinner.getValue();
+                heightInches = (Integer) heightInchesSpinner.getValue();
+                break;
+            case 5: // Attack range
+                attackRange = (String) rangeComboBox.getSelectedItem();
+                break;
+            case 6: // Free time
+                freeTime = freeTimeSlider.getValue();
+                break;
+            case 7: // Humanness (last question now)
+                humanness = humannessSlider.getValue();
+                // All done! Start matching
+                startMatching(parent);
+                return;
+        }
+
+        // Move to next question
+        showQuestion(currentQuestion + 1);
     }
 
     private JButton createStyledButton(String text, Color bgColor) {
@@ -399,26 +527,28 @@ class ProfileInputPanel extends JPanel {
 
         if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             selectedImage = fileChooser.getSelectedFile();
-            ImageIcon icon = new ImageIcon(selectedImage.getAbsolutePath());
-            Image scaled = icon.getImage().getScaledInstance(120, 120, Image.SCALE_SMOOTH);
-            imageLabel.setIcon(new ImageIcon(scaled));
-            imageLabel.setText("");
+            if (imageLabel != null) {
+                ImageIcon icon = new ImageIcon(selectedImage.getAbsolutePath());
+                Image scaled = icon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
+                imageLabel.setIcon(new ImageIcon(scaled));
+                imageLabel.setText("");
+            }
         }
     }
 
     private void startMatching(JFrame parent) {
-        String name = nameField.getText().trim();
-        String bio = bioArea.getText().trim();
-
-        if (name.isEmpty() || bio.isEmpty()) {
+        // All data is already stored in instance variables
+        if (userName.isEmpty() || userBio.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please fill in all fields!",
                 "Missing Information", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Switch to matching screen
+        // Switch to matching screen with user preferences
         parent.getContentPane().removeAll();
-        parent.add(new SwipePanel(parent, name, bio));
+        String imagePath = selectedImage != null ? selectedImage.getAbsolutePath() : null;
+        parent.add(new SwipePanel(parent, userName, userBio, heightFeet, heightInches,
+                                  attackRange, freeTime, humanness, preference, imagePath));
         parent.revalidate();
         parent.repaint();
     }
