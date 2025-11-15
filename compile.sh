@@ -1,8 +1,8 @@
 #!/bin/bash
 cd "$(dirname "$0")"
 
-echo "Compiling with JLayer library..."
-javac -cp "lib/jlayer-1.0.1.jar" -d out/production/ClashRoyaleDatingSim src/*.java
+echo "Compiling with JLayer and JSON libraries..."
+javac -cp "lib/jlayer-1.0.1.jar:lib/json-20240303.jar" -d out/production/ClashRoyaleDatingSim src/*.java
 
 if [ $? -eq 0 ]; then
     echo "Compilation successful!"

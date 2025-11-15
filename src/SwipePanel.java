@@ -13,6 +13,7 @@ import javax.imageio.ImageIO;
 class SwipePanel extends JPanel {
     private String userName;
     private String userBio;
+    private String userImagePath;
     private List<ClashCard> cards;
     private int currentIndex = 0;
     private List<ClashCard> matches;
@@ -35,9 +36,10 @@ class SwipePanel extends JPanel {
     private static final Color CARD_BG = new Color(255, 255, 255, 250);
 
     public SwipePanel(JFrame parent, String name, String bio, int heightFeet, int heightInches,
-                      String attackRange, int freeTime, int humanness, String preference) {
+                      String attackRange, int freeTime, int humanness, String preference, String imagePath) {
         this.userName = name;
         this.userBio = bio;
+        this.userImagePath = imagePath;
         this.preferredHeightFeet = heightFeet;
         this.preferredHeightInches = heightInches;
         this.preferredAttackRange = attackRange;
@@ -302,6 +304,18 @@ class SwipePanel extends JPanel {
         }
     }
 
+    private String cleanImagePath(String imagePath) {
+        // Remove leading ./ if present
+        if (imagePath.startsWith("./")) {
+            imagePath = imagePath.substring(2);
+        }
+        // Remove leading images/ if present
+        if (imagePath.startsWith("images/")) {
+            imagePath = imagePath.substring(7);
+        }
+        return imagePath;
+    }
+
     private void initializeCardsForMegaKnight() {
         cards = new ArrayList<>();
 
@@ -419,6 +433,9 @@ class SwipePanel extends JPanel {
 
         ClashCard card = cards.get(currentIndex);
 
+        // Play deploy sound for the card
+        AudioPlayer.playDeploySound(card.name);
+
         // Title
         JPanel topPanel = new JPanel();
         topPanel.setOpaque(false);
@@ -450,11 +467,12 @@ class SwipePanel extends JPanel {
         try {
             // Load card's specific image - try multiple paths
             Image cardImage = null;
+            String cleanImagePath = cleanImagePath(card.image);
 
             String[] possiblePaths = {
-                "images/" + card.image,                    // When running from src directory
-                "src/images/" + card.image,                // When running from root
-                "../images/" + card.image
+                "images/" + cleanImagePath,                // When running from src directory
+                "src/images/" + cleanImagePath,            // When running from root
+                "../images/" + cleanImagePath
             };
 
             for (String path : possiblePaths) {
@@ -622,16 +640,133 @@ class SwipePanel extends JPanel {
     private void swipe(JFrame parent, boolean liked) {
         if (liked) {
             if (Math.random() > 0.2) {
-                matches.add(cards.get(currentIndex));
+                ClashCard matchedCard = cards.get(currentIndex);
+                matches.add(matchedCard);
+                // Immediately transition to chat with matched card
+                transitionToChat(parent, matchedCard);
+                return;
             }
         }
         currentIndex++;
         showCurrentCard(parent);
     }
 
+    private void transitionToChat(JFrame parent, ClashCard matchedCard) {
+        // Show match announcement first
+        showMatchAnnouncement(parent, matchedCard);
+    }
+
+    private void showMatchAnnouncement(JFrame parent, ClashCard matchedCard) {
+        removeAll();
+        setLayout(new BorderLayout(10, 10));
+
+        // Play deploy sound for matched card
+        AudioPlayer.playDeploySound(matchedCard.name);
+
+        JPanel topPanel = new JPanel();
+        topPanel.setOpaque(false);
+        topPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 10, 20));
+        JLabel titleLabel = new JLabel("IT'S A MATCH!");
+        titleLabel.setFont(Fonts.ClashFontLarge);
+        titleLabel.setForeground(CLASH_GOLD);
+        topPanel.add(titleLabel);
+        add(topPanel, BorderLayout.NORTH);
+
+        JPanel matchPanel = new JPanel();
+        matchPanel.setLayout(new BoxLayout(matchPanel, BoxLayout.Y_AXIS));
+        matchPanel.setOpaque(false);
+
+        // Add card photo
+        matchPanel.add(Box.createVerticalStrut(20));
+        try {
+            Image cardImage = null;
+            String cleanImagePath = cleanImagePath(matchedCard.image);
+            String[] possiblePaths = {
+                "images/" + cleanImagePath,
+                "src/images/" + cleanImagePath,
+                "../images/" + cleanImagePath
+            };
+
+            for (String path : possiblePaths) {
+                File imageFile = new File(path);
+                if (imageFile.exists()) {
+                    cardImage = ImageIO.read(imageFile);
+                    break;
+                }
+            }
+
+            if (cardImage == null) {
+                // Try loading as resource
+                String imagePath = "/images/" + cleanImagePath;
+                try {
+                    cardImage = ImageIO.read(getClass().getResourceAsStream(imagePath));
+                } catch (Exception e) {
+                    System.err.println("Could not load card image: " + imagePath);
+                }
+            }
+
+            if (cardImage != null) {
+                Image scaledImage = cardImage.getScaledInstance(300, 300, Image.SCALE_SMOOTH);
+                JLabel imageLabel = new JLabel(new ImageIcon(scaledImage));
+                imageLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+                matchPanel.add(imageLabel);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        matchPanel.add(Box.createVerticalStrut(20));
+
+        JLabel matchName = new JLabel(matchedCard.name.toUpperCase());
+        matchName.setFont(Fonts.ClashFontLarge);
+        matchName.setForeground(CLASH_GOLD);
+        matchName.setAlignmentX(Component.CENTER_ALIGNMENT);
+        matchPanel.add(matchName);
+
+        matchPanel.add(Box.createVerticalStrut(10));
+
+        JLabel matchMessage = new JLabel("<html><div style='text-align: center;'>Congratulations!<br>You've matched with " + matchedCard.name + "!</div></html>");
+        matchMessage.setFont(Fonts.ClashFontMedium);
+        matchMessage.setForeground(Color.WHITE);
+        matchMessage.setAlignmentX(Component.CENTER_ALIGNMENT);
+        matchMessage.setHorizontalAlignment(SwingConstants.CENTER);
+        matchPanel.add(matchMessage);
+
+        add(matchPanel, BorderLayout.CENTER);
+
+        // Add button to start chatting
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
+        buttonPanel.setOpaque(false);
+
+        JButton chatButton = createStyledButton("START CHATTING", new Color(40, 167, 69));
+        chatButton.addActionListener(e -> {
+            // Transition to chat panel
+            parent.getContentPane().removeAll();
+            parent.add(new ChatPanel(parent, matchedCard, userBio, userImagePath));
+            parent.revalidate();
+            parent.repaint();
+        });
+
+        JButton continueButton = createStyledButton("KEEP SWIPING", CLASH_BLUE);
+        continueButton.addActionListener(e -> {
+            currentIndex++;
+            showCurrentCard(parent);
+        });
+
+        buttonPanel.add(chatButton);
+        buttonPanel.add(continueButton);
+        add(buttonPanel, BorderLayout.SOUTH);
+
+        revalidate();
+        repaint();
+    }
+
     private void showInstantMegaKnightMatch(JFrame parent) {
         removeAll();
         setLayout(new BorderLayout(10, 10));
+
+        // Play Mega Knight deploy sound
+        AudioPlayer.playDeploySound("Mega Knight");
 
         JPanel topPanel = new JPanel();
         topPanel.setOpaque(false);
@@ -652,7 +787,8 @@ class SwipePanel extends JPanel {
         matchPanel.add(Box.createVerticalStrut(20));
         try {
             Image cardImage = null;
-            String imagePath = "/images/" + megaKnight.image;
+            String cleanImagePath = cleanImagePath(megaKnight.image);
+            String imagePath = "/images/" + cleanImagePath;
             try {
                 cardImage = ImageIO.read(getClass().getResourceAsStream(imagePath));
                 System.out.println("Successfully loaded Mega Knight image from: " + imagePath);
@@ -689,6 +825,22 @@ class SwipePanel extends JPanel {
         matchPanel.add(matchMessage);
 
         add(matchPanel, BorderLayout.CENTER);
+
+        // Add button to start chatting
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
+        buttonPanel.setOpaque(false);
+
+        JButton chatButton = createStyledButton("START CHATTING", new Color(40, 167, 69));
+        chatButton.addActionListener(e -> {
+            // Transition to chat panel with Mega Knight
+            parent.getContentPane().removeAll();
+            parent.add(new ChatPanel(parent, megaKnight, userBio, userImagePath));
+            parent.revalidate();
+            parent.repaint();
+        });
+
+        buttonPanel.add(chatButton);
+        add(buttonPanel, BorderLayout.SOUTH);
 
         revalidate();
         repaint();
@@ -742,10 +894,11 @@ class SwipePanel extends JPanel {
             matchesPanel.add(Box.createVerticalStrut(20));
             try {
                 Image cardImage = null;
+                String cleanImagePath = cleanImagePath(topMatch.image);
                 String[] possiblePaths = {
-                    "images/" + topMatch.image,             // When running from src directory
-                    "src/images/" + topMatch.image,         // When running from root
-                    "../images/" + topMatch.image
+                    "images/" + cleanImagePath,             // When running from src directory
+                    "src/images/" + cleanImagePath,         // When running from root
+                    "../images/" + cleanImagePath
                 };
 
                 for (String path : possiblePaths) {

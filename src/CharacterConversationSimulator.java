@@ -1,4 +1,3 @@
-/*
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -8,39 +7,32 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
+import java.io.File;
+import java.io.FileInputStream;
+import java.util.Base64;
 
 
 public class CharacterConversationSimulator {
 
-    private static final String API_URL = "https://api.openai.com/v1/chat/completions";
-    private String apiKey;
+    private static final String API_URL = "https://api.anthropic.com/v1/messages";
+    private static final String API_KEY = "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";
+    private static final String ANTHROPIC_VERSION = "2023-06-01";
+
     private String characterPersonality;
     private String userBio;
     private List<JSONObject> conversationHistory;
     private UserProfile userP = new UserProfile();
 
     public CharacterConversationSimulator(String apiKey, String characterPersonality, String userBio) {
-        this.apiKey = apiKey;
+        // API key is now hardcoded, but we keep the parameter for compatibility
         this.characterPersonality = characterPersonality;
         this.userBio = userBio;
         this.conversationHistory = new ArrayList<>();
-
-        // Initialize with system message
-        JSONObject systemMessage = new JSONObject();
-        systemMessage.put("role", "system");
-        systemMessage.put("content",
-                "You are roleplaying as a character with this personality: " + characterPersonality + "\n" +
-                        "You are on a date with someone who has this bio: " + userBio + "\n" +
-                        "Stay in character at all times. Be engaging and respond naturally to what they say."
-        );
-        conversationHistory.add(systemMessage);
     }
 
-    */
-/**
+    /**
      * Represents a response from the character including their message and score
-     *//*
-
+     */
     public static class CharacterResponse {
         public String message;
         public int score;
@@ -56,14 +48,12 @@ public class CharacterConversationSimulator {
         }
     }
 
-    */
-/**
-     * Sends user statement to ChatGPT and gets character response with score
+    /**
+     * Sends user statement to Claude and gets character response with score
      * @param userStatement What the user said
      * @return CharacterResponse containing the character's reply and user's score
      * @throws Exception if the API call fails
-     *//*
-
+     */
     public CharacterResponse sendMessage(String userStatement) throws Exception {
         // Add user message to history
         JSONObject userMessage = new JSONObject();
@@ -86,14 +76,21 @@ public class CharacterConversationSimulator {
         return new CharacterResponse(characterReply, score);
     }
 
-    */
-/**
+    /**
      * Gets the character's response based on conversation history
-     *//*
-
+     */
     private String getCharacterReply() throws Exception {
         JSONObject requestBody = new JSONObject();
-        requestBody.put("model", "gpt-4o-mini");
+        requestBody.put("model", "claude-haiku-4-5-20251001");
+        requestBody.put("max_tokens", 500);
+
+        // Create system message with character personality
+        String systemPrompt = "You are roleplaying as a character with this personality: " + characterPersonality + "\n" +
+                "You are on a date with someone who has this bio: " + userBio + "\n" +
+                "Stay in character at all times. Be engaging and respond naturally to what they say. " +
+                "Keep responses relatively brief (2-3 sentences) as this is a chat conversation.";
+
+        requestBody.put("system", systemPrompt);
 
         // Convert conversation history to JSONArray
         JSONArray messages = new JSONArray();
@@ -102,67 +99,68 @@ public class CharacterConversationSimulator {
         }
 
         requestBody.put("messages", messages);
-        requestBody.put("max_tokens", 500);
-        requestBody.put("temperature", 0.9); // Higher for more creative responses
 
         return makeAPICall(requestBody);
     }
 
-    */
-/**
+    /**
      * Scores the user's statement based on how well it resonates with the character
-     *//*
-
-    private scoreUserStatement(String userStatement, String characterReply) throws Exception {
+     */
+    private int scoreUserStatement(String userStatement, String characterReply) throws Exception {
         JSONObject requestBody = new JSONObject();
-        requestBody.put("model", "gpt-4o-mini");
+        requestBody.put("model", "claude-haiku-4-5-20251001");
+        requestBody.put("max_tokens", 10);
 
+        // Create scoring prompt as system message
+        String systemPrompt = "You are evaluating a dating conversation. Rate the user's statement on a scale of 0-10 based on:\n" +
+                "- How appropriate and engaging it is\n" +
+                "- How well it matches the character's personality and interests\n" +
+                "- Social skills and charm\n" +
+                "- Romantic potential\n\n" +
+                "Respond with ONLY a single number from 0 to 10.";
+
+        requestBody.put("system", systemPrompt);
+
+        // Create user message with context
         JSONArray messages = new JSONArray();
-
-        // Create scoring prompt
         JSONObject scoringMessage = new JSONObject();
         scoringMessage.put("role", "user");
         scoringMessage.put("content",
-                "You are evaluating a dating conversation. Rate the user's statement on a scale of 0-10 based on:\n" +
-                        "- How appropriate and engaging it is\n" +
-                        "- How well it matches the character's personality and interests\n" +
-                        "- Social skills and charm\n" +
-                        "- Romantic potential\n\n" +
-                        "Character Personality: " + characterPersonality + "\n" +
-                        "User Bio: " + userBio + "\n" +
-                        "User Said: \"" + userStatement + "\"\n" +
-                        "Character Responded: \"" + characterReply + "\"\n\n" +
-                        "Respond with ONLY a single number from 0 to 10."
+                "Character Personality: " + characterPersonality + "\n" +
+                "User Bio: " + userBio + "\n" +
+                "User Said: \"" + userStatement + "\"\n" +
+                "Character Responded: \"" + characterReply + "\"\n\n" +
+                "Rate this from 0-10:"
         );
         messages.put(scoringMessage);
 
         requestBody.put("messages", messages);
-        requestBody.put("max_tokens", 10);
-        requestBody.put("temperature", 0.3); // Lower for consistent scoring
 
         String response = makeAPICall(requestBody);
 
         try {
-            this.userP.updateScore(Integer.parseInt(response.trim()));
+            // Extract just the number from the response
+            String trimmed = response.trim().replaceAll("[^0-9]", "");
+            int scoreValue = Integer.parseInt(trimmed);
+            this.userP.updateScore(scoreValue);
             return this.userP.getScore();
         } catch (NumberFormatException e) {
             // Default to 5 if parsing fails
             System.err.println("Warning: Could not parse score, defaulting to 5. Response was: " + response);
-            return 0;
+            return 5;
         }
     }
 
-    */
-/**
-     * Makes the actual API call to OpenAI
-     *//*
-
+    /**
+     * Makes the actual API call to Anthropic Claude
+     */
     private String makeAPICall(JSONObject requestBody) throws Exception {
         URL url = new URL(API_URL);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
         connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+        connection.setRequestProperty("x-api-key", API_KEY);
+        connection.setRequestProperty("anthropic-version", ANTHROPIC_VERSION);
         connection.setDoOutput(true);
 
         // Send request
@@ -184,13 +182,12 @@ public class CharacterConversationSimulator {
             }
             in.close();
 
-            // Parse JSON response
+            // Parse JSON response - Claude's format
             JSONObject jsonResponse = new JSONObject(response.toString());
-            String reply = jsonResponse
-                    .getJSONArray("choices")
-                    .getJSONObject(0)
-                    .getJSONObject("message")
-                    .getString("content");
+
+            // Claude returns content as an array of content blocks
+            JSONArray contentArray = jsonResponse.getJSONArray("content");
+            String reply = contentArray.getJSONObject(0).getString("text");
 
             return reply;
         } else {
@@ -208,29 +205,117 @@ public class CharacterConversationSimulator {
         }
     }
 
-    */
-/**
-     * Resets the conversation while keeping character and user info
-     *//*
+    /**
+     * Gets initial greeting from character based on user's photo
+     */
+    public String getInitialGreetingWithPhoto(String imagePath) throws Exception {
+        // Read and encode image
+        String base64Image = encodeImageToBase64(imagePath);
+        String mediaType = getMediaType(imagePath);
 
+        JSONObject requestBody = new JSONObject();
+        requestBody.put("model", "claude-haiku-4-5-20251001");
+        requestBody.put("max_tokens", 500);
+
+        // Create system message
+        String systemPrompt = "You are roleplaying as a character with this personality: " + characterPersonality + "\n" +
+                "You are on a dating app and just matched with someone who has this bio: " + userBio + "\n" +
+                "You just saw their profile picture. Comment on their appearance, demeanor, and what you notice in the background. " +
+                "Be charming, witty, and flirty. Keep it brief (2-3 sentences). Stay in character.";
+
+        requestBody.put("system", systemPrompt);
+
+        // Create message with image
+        JSONArray messages = new JSONArray();
+        JSONObject userMessage = new JSONObject();
+        userMessage.put("role", "user");
+
+        // Content array with image and text
+        JSONArray content = new JSONArray();
+
+        // Image content
+        JSONObject imageContent = new JSONObject();
+        imageContent.put("type", "image");
+        JSONObject imageSource = new JSONObject();
+        imageSource.put("type", "base64");
+        imageSource.put("media_type", mediaType);
+        imageSource.put("data", base64Image);
+        imageContent.put("source", imageSource);
+        content.put(imageContent);
+
+        // Text content
+        JSONObject textContent = new JSONObject();
+        textContent.put("type", "text");
+        textContent.put("text", "This is my profile picture. What do you think?");
+        content.put(textContent);
+
+        userMessage.put("content", content);
+        messages.put(userMessage);
+
+        requestBody.put("messages", messages);
+
+        return makeAPICall(requestBody);
+    }
+
+    /**
+     * Gets simple initial greeting without photo
+     */
+    public String getInitialGreeting() throws Exception {
+        JSONObject requestBody = new JSONObject();
+        requestBody.put("model", "claude-haiku-4-5-20251001");
+        requestBody.put("max_tokens", 500);
+
+        String systemPrompt = "You are roleplaying as a character with this personality: " + characterPersonality + "\n" +
+                "You are on a dating app and just matched with someone who has this bio: " + userBio + "\n" +
+                "Start the conversation with a brief, charming greeting (2-3 sentences). Stay in character.";
+
+        requestBody.put("system", systemPrompt);
+
+        JSONArray messages = new JSONArray();
+        JSONObject userMessage = new JSONObject();
+        userMessage.put("role", "user");
+        userMessage.put("content", "Say hello!");
+        messages.put(userMessage);
+
+        requestBody.put("messages", messages);
+
+        return makeAPICall(requestBody);
+    }
+
+    /**
+     * Encodes image file to base64 string
+     */
+    private String encodeImageToBase64(String imagePath) throws Exception {
+        File imageFile = new File(imagePath);
+        FileInputStream fileInputStream = new FileInputStream(imageFile);
+        byte[] imageBytes = new byte[(int) imageFile.length()];
+        fileInputStream.read(imageBytes);
+        fileInputStream.close();
+        return Base64.getEncoder().encodeToString(imageBytes);
+    }
+
+    /**
+     * Gets media type from file extension
+     */
+    private String getMediaType(String imagePath) {
+        String lower = imagePath.toLowerCase();
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".gif")) return "image/gif";
+        if (lower.endsWith(".webp")) return "image/webp";
+        return "image/jpeg"; // default
+    }
+
+    /**
+     * Resets the conversation while keeping character and user info
+     */
     public void resetConversation() {
         conversationHistory.clear();
-
-        JSONObject systemMessage = new JSONObject();
-        systemMessage.put("role", "system");
-        systemMessage.put("content",
-                "You are roleplaying as a character with this personality: " + characterPersonality + "\n" +
-                        "You are on a date with someone who has this bio: " + userBio + "\n" +
-                        "Stay in character at all times. Be engaging and respond naturally to what they say."
-        );
-        conversationHistory.add(systemMessage);
     }
 
     // Example usage
     public static void main(String[] args) {
         try {
-            String apiKey = "YOUR_OPENAI_API_KEY_HERE";
-
             // Define character personality
             String characterPersonality = "A fierce but kind knight from Clash Royale. " +
                     "You are brave, honorable, and love talking about battles and strategy. " +
@@ -241,12 +326,12 @@ public class CharacterConversationSimulator {
             String userBio = "A strategy game enthusiast who enjoys deep conversations " +
                     "and has a good sense of humor.";
 
-            // Create simulator
+            // Create simulator (API key parameter is ignored now)
             CharacterConversationSimulator simulator =
-                    new CharacterConversationSimulator(apiKey, characterPersonality, userBio);
+                    new CharacterConversationSimulator("", characterPersonality, userBio);
 
             // Simulate conversation
-            System.out.println("=== CLASH ROYALE DATING SIMULATOR ===\n");
+            System.out.println("=== CLASH ROYALE DATING SIMULATOR (powered by Claude) ===\n");
 
             // Message 1
             String userMsg1 = "Hi! I've heard you're quite the warrior. What's your favorite battle strategy?";
@@ -274,4 +359,4 @@ public class CharacterConversationSimulator {
             e.printStackTrace();
         }
     }
-}*/
+}

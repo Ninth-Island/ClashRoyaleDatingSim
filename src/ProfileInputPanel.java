@@ -546,8 +546,9 @@ class ProfileInputPanel extends JPanel {
 
         // Switch to matching screen with user preferences
         parent.getContentPane().removeAll();
+        String imagePath = selectedImage != null ? selectedImage.getAbsolutePath() : null;
         parent.add(new SwipePanel(parent, userName, userBio, heightFeet, heightInches,
-                                  attackRange, freeTime, humanness, preference));
+                                  attackRange, freeTime, humanness, preference, imagePath));
         parent.revalidate();
         parent.repaint();
     }

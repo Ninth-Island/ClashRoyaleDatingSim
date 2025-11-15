@@ -1,4 +1,3 @@
-/*
 
 
 import java.util.ArrayList;
@@ -41,4 +40,12 @@ public class UserProfile {
             return false;
         }
     }
-}*/
+
+    public void updateScore(int newScore) {
+        this.score = newScore;
+    }
+
+    public int getScore() {
+        return (int) this.score;
+    }
+}

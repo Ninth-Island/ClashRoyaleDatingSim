@@ -41,4 +41,15 @@ public class AudioPlayer {
     public static void playCryingKing() {
         playSound("/resources/cryingKing.mp3");
     }
+
+    public static void playDeploySound(String cardName) {
+        // Convert card name to sound file name
+        // e.g., "Baby Dragon" -> "baby_dragon_deploy.mp3"
+        String soundFileName = cardName.toLowerCase()
+            .replace(" ", "_")
+            .replace("-", "_") + "_deploy.mp3";
+
+        String soundPath = "/sounds/" + soundFileName;
+        playSound(soundPath);
+    }
 }
